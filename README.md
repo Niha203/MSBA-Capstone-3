@@ -8,15 +8,21 @@ that Swire ‘wins’ the business but will create a risk that the account isn�
 creates a loyal and valuable customer, offering the same discounts to a customer who doesn’t last is a significant loss of investment.
 For this reason, Swire Coca-Cola needs to constantly improve their ability to predict the success/profitability/sales of a new 
 restaurants in their market.
+
 Problem: predict the popularity (4.0 or higher in online reviews), longevity (1, 2, or 3+ years), and total 3-year sales volume of new 
 Swire customers based on historical results.
+
 Data provided and needed:
+
  Customer attributes (including location and customer type)
 See attachment on Canvas
+
  Swire sales for above customers
 See attachment on Canvas 
+
  Census data
 Students are encouraged to find open-source census data for population demographics. Swire might be able to provide the 
 data after an NDA has been signed.
+
  Consumer Reviews
 Students are encouraged to find open-source consumer reviews data from Google and Yelp.
