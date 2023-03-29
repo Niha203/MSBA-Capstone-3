@@ -1,0 +1,15 @@
+•	Statement of the business problem of the project - Group
+•	Data Dictionary:
+  o	Customer Data Description
+  o	Sales Data Description
+  o	US Zip Description
+•	Pre-processing 
+  •	Combining Data
+  •	Data Cleaning
+  •	Imputing Missing Values
+  •	Variance
+•	Modeling
+  o	Longevity – Linear regression, Regularized Linear regression, Decision trees
+  o	Sales Volume - Regularized Linear regression, Decision trees, Random forest
+•	Summary
+
