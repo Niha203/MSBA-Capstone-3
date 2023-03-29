@@ -1,0 +1,667 @@
+---
+title: "Capstone project"
+author: "Niha Garikapati"
+date: '2023-02-13'
+output: 
+  html_document:
+    css: report_styles.css
+    theme: readable
+    fig_width: 15
+    fig_height: 10
+    highlight: breezedark
+    number_sections: yes
+    toc: yes
+  editor_options:
+    chunk_output_type: console
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r, include=FALSE}
+
+local({
+  hook_output <- knitr::knit_hooks$get('output')
+  knitr::knit_hooks$set(output = function(x, options) {
+    if (!is.null(options$max.height)) options$attr.output <- c(
+      options$attr.output,
+      sprintf('style="max-height: %s;"', options$max.height)
+    )
+    hook_output(x, options)
+  })
+})
+```
+
+```{css, include=FALSE}
+
+pre, code {white-space:pre !important; overflow-x:scroll !important}
+
+```
+
+
+```{r, echo = F}
+library(knitr)
+library(formatR)
+opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+```
+
+# Statement of the business problem of the project
+
+10% of Swire Coca-Cola’s business is “B2B,” driven by local businesses such as restaurants. Hence, Swire has to offer the best price to win the business of these local restaurants making sure they would be profitable along with continuing to be a loyal and valuable customer. Also, to mention the risk of offering the same discounts to a potential unprofitable business would be a significant loss of in further impacting the company’s profit.
+
+The objective of the project is to predict customer success by utilization of the customer attributes to avoid any upcoming wastage of money. This project will reinforce a new model, based on additional analytics as mentioned below:
+
+1. A predictive analytics model to deliver a ranked list of customers in areas of popularity, longevity and total 3-year sales volume. The list would be ranked by probability of profitability of new restaurants in the market in above mentioned areas. Swire can prioritize the ones at the top of the list during determining price and funding to offer the business.
+
+2. A prescriptive analytics model for recommendations on deciding how to allocate variation of pricing, which could potentially help Swire initially win the business and also be profitable down the line.
+
+Targeting customers more accurately than before would improve revenue for the company. The scale for success on this project is to improve from the previous Swire sales and increase the profit that the restaurants make in the business, while spending substantially less money.
+The project deliverables will be a ranked list of customers sent to the Swire sales team along with recommended strategies of price variation. As mentioned, this project is focused on predictive and prescriptive analytical models. Therefore, we will not be including any analysis of why restaurants fail to plan inventory or gain popularity.
+
+We foresee having results ready for evaluation for Swire by March 22nd. We will use observations to modify deliverables as necessary that should be agreed upon with the Swire and added to a revised business problem statement; the deadline for those revisions would be April 12th.
+
+
+# Data Dictionary:
+
+## Customer Data	Description:
+
+*Customer Number*	- unique identifier of a customer
+
+*Sales Office Description* - Sales office to which customer is assigned
+
+*Delivery Plant Description* - Sales office from which product is delivered
+
+*On Boarding Date* - Date when the customer started business with Swire
+
+*City* - city in which the customer resides
+
+*Zip Code* - Zip Code in which the customer resides
+
+*County* - County in which the customer resides
+
+*Longitude* - Longitude at which the customer resides
+
+*Latitude* - latitude at which the customer resides
+
+*Activity Cluster* - Self explanatory from the values
+
+*Trade Channel* - Type of store the customer falls under (Supermarket, College, etc.)
+
+*Sub Trade Channel* - More specific type of store the customer falls under (Chain Supermarket, Hardware, etc.)
+
+*Business Type*	- Used only to identify special events for FSOP churn purposes.
+
+*Market* - Which part of the business the customer is serviced from
+
+*Cold Drink Channel* - Classifies fsop customers by type of venue. If not an fsop customer, "Non Cold Drink"
+
+## Sales Data	Description:
+
+*Customer Number* -	unique identifier of a customer
+
+*Product Sold* - unique identifier of a product
+
+*Bevarge Category* - Sparkling/Tea/Enhanced/Energy/Sports etc
+
+*Calorie Category* - Low Calorie/Regular Calorie
+
+*Package Type Description* - Aluminum, Glass, bag-in-box etc
+
+*Package Size* - Size of package
+
+*Physical Volume* - Total cases of materials sold during the whole timeframe
+
+*Discount* - Total discounts offered for materials sold during the whole timeframe
+
+*NSI* - Total revenue for materials sold during the whole timeframe
+
+*Invoice_price*	- Equivalent for revenue.
+
+*dead_net* - Total revenue less advertising for materials sold during the whole timeframe
+
+*Gross Profit Dead net*	- Total gross profit for materials sold during the whole timeframe
+
+*COGS* - Total cost of goods for materials sold during the whole timeframe
+
+*Min Posting Date* - First delivery date within the selected analysis universe [2021 and 2022]
+
+*Max Posting Date* - Last delivery date within the selected analysis universe [2021 and 2022]
+
+*Number of Transactions* - Number of days with transaction within the selected analysis universe [2021 and 2022]
+
+Added a Demographics dataset for population and density information.
+
+# Data Loading and pre-processing
+
+```{r set, warning=FALSE}
+#Loading all the libraries
+library(rmarkdown)
+library(psych)
+library(scatterplot3d)
+library(caret)
+library(tictoc)
+library(ggplot2)
+library(tidyverse)
+library(readr)
+library(lubridate)
+library(ggridges)
+library(patchwork)
+library(viridis)
+#library(hrbrthemes)
+library(gapminder)
+library(stats)
+theme_set(theme_bw())
+library(car)
+library(mice)
+library(rminer)
+library(matrixStats)
+library(rmarkdown)
+library(psych)
+library(rpart)
+library(RWeka)
+library(glmnet)
+library(caret)
+library(dplyr)
+library(randomForest)
+library(knitr)
+library(rpart.plot)
+library(magrittr)
+#Reading sales data
+sales <- read.csv("FSOP_Sales_Data_v2.0.csv",stringsAsFactors = FALSE,na.strings = c("", "Not applicable"))
+#str(sales)
+
+#Reading Customer's data
+cust <- read.csv("FSOP_Customer_Data_v2.0.csv",stringsAsFactors = FALSE,na.strings = c("", "Not applicable"))
+#str(cust)
+
+#Reading Customer Demographic's data
+uszips <- read.csv("uszips.csv",stringsAsFactors = FALSE)
+#str(uszips)
+
+```
+
+# Combining Data
+
+Combining Sales, Customer data and Demographics data. 
+
+```{r Preprocessing}
+
+##Data Pre processing
+## merge sales and customer data
+
+#Full join
+#cs <- merge(sales,cust, by="CUSTOMER_NUMBER_BLINDED",all = TRUE)
+#cs <- sales %>% full_join(cust, by ="CUSTOMER_NUMBER_BLINDED")
+
+#Left join(Sales left join customer)-Contains all the sales data 
+#and common data from customer
+cs_sales <- merge(sales,cust, by="CUSTOMER_NUMBER_BLINDED")
+#View(cs_sales)
+#right join(sales right join customer)- Contains all cust data and 
+#common data from sales
+#cs_cust <- merge(sales,cust, by="CUSTOMER_NUMBER_BLINDED",all.y = TRUE)
+
+# Separating the fips from zip codes for merging demographics
+cs_sales <- separate(data = cs_sales, col = ADDRESS_ZIP_CODE, into = c("ZIP_CODE", "ADDRESS_CODE")) 
+
+# Merge demographics data
+cs_sales <- merge(cs_sales, uszips, by.x=c("ZIP_CODE"), by.y=c("zip"), all.x = TRUE)
+
+# Dropping extra columns
+drop <- c("county_name","city","state_id","state_name","timezone")
+cs_sales = cs_sales[,!(names(cs_sales) %in% drop)]
+
+
+```
+
+# Data Cleaning
+
+Identifying, correcting, or removing inaccurate raw data for modeling purposes.
+
+- Started off cleaning the data by initially plotting the missing values.
+
+- Replacing NA values with none in some of the variables as the listed feature doesn't existed for the data set.
+
+- Converting the variables into factors.
+
+- Dropping column not important for modelling
+
+- Dropped obvious errors in ON_BOARDING_DATE for imputing later
+
+
+```{r}
+# Combining Missing Values
+missing_values <- cs_sales %>% summarise_all(funs(sum(is.na(.)/n())))
+
+# All 35 Variables with missing_values
+missing_values <- gather(missing_values,key = "feature",value = "missing_value")
+missing_values %>% arrange(desc(missing_value)) %>% top_n(30, missing_value)
+
+# Plotting the Missing values
+ggplot(missing_values,aes(x=feature,y=missing_value))+
+  geom_bar(stat="identity",fill="blue")+
+  coord_flip()+
+  theme_bw()
+
+
+# Correcting the obvious error in ON_BOARDING_DATE by substituting NULL for further imputation
+cs_sales$ON_BOARDING_DATE<-gsub("9999-12-31",NA,cs_sales$ON_BOARDING_DATE)
+# Dropping Address_code as it is not that important for modelling
+
+drop <- c("ADDRESS_CODE")
+cs_sales = cs_sales[,!(names(cs_sales) %in% drop)]
+
+```
+
+# Imputing Missing Values 
+
+When the median/mode method is used: character vectors and factors are imputed with the mode. Numeric and integer vectors are imputed with the median. 
+
+```{r}
+# locate the NA's
+#is.na(combined_final)
+
+# how many missings per variable?
+colSums(is.na(cs_sales))
+
+# Replacing NA values in mixed Data types
+
+set.seed(123)
+library(imputeMissings)
+
+# median/mode method
+values2 <- compute(cs_sales)
+
+# Impute
+cs_sales<-impute(cs_sales,object=values2) #using median/mode values
+
+any(is.na(cs_sales))
+
+```
+
+# Variance
+
+nzv() (for “near zero variance”), that will identify the columns in a data frame with little variation that consequently contain little or no information. We need to distinguish near zero variance predictors from zero variance predictors. 
+
+Removing near zero variance because:
+- Low variance predictors
+- Predictor set is large
+
+```{r}
+
+#nzv(cs_sales)
+
+cs_sales1 <- cs_sales [, -nzv(cs_sales)]
+
+# Identify near-zero variance variables
+nzv_vars <- nearZeroVar(cs_sales1)
+
+# Print the near-zero variance variables
+print(nzv_vars)
+
+# Remove near-zero variance variables
+#cs_sales1 <- cs_sales1[, !nzv_vars]
+
+```
+
+# Removing outliers
+
+Not removing outliers to prevent loss of data.
+
+```{r}
+
+# # Create a box plot to visualize the data
+# boxplot(cs_sales1$NUM_OF_TRANSACTIONS)
+# 
+# # Calculate the z-scores for each data point
+# z_scores <- scale(cs_sales1$NUM_OF_TRANSACTIONS)
+# 
+# # Identify the data points with z-scores greater than 3
+# outliers <- which(abs(z_scores) > 3)
+# 
+
+```
+
+
+# Modeling
+
+## Data Manipulation and preparation
+
+- Changing the Customer and Product granularity to an overall Customer dataset by aggregating columns.
+
+- Longevity is calculated as the span of Min and Max posted dates to seek the length of the business transactions also accounting in for number of transactions and physical material volumes sold.
+
+- During EDA I also observed that few of the absolute rows are duplicated so using distinct function from dplyr to remove them.
+
+```{r}
+
+
+cs_sales_final <- cs_sales1 %>% 
+  select(CUSTOMER_NUMBER_BLINDED,NUM_OF_TRANSACTIONS,MIN_POSTING_DATE,MAX_POSTING_DATE,SALES_OFFICE_DESCRIPTION,CUSTOMER_ACTIVITY_CLUSTER_DESCRIPTION,CUSTOMER_TRADE_CHANNEL_DESCRIPTION,population,density,PHYSICAL_VOLUME) %>%
+  group_by(CUSTOMER_NUMBER_BLINDED,NUM_OF_TRANSACTIONS,MIN_POSTING_DATE,MAX_POSTING_DATE,SALES_OFFICE_DESCRIPTION,CUSTOMER_ACTIVITY_CLUSTER_DESCRIPTION,CUSTOMER_TRADE_CHANNEL_DESCRIPTION,population,density,PHYSICAL_VOLUME) %>%
+  summarize(MIN_POSTING_DATE = min(MIN_POSTING_DATE),
+            MAX_POSTING_DATE = max(MAX_POSTING_DATE),
+            NUM_OF_TRANSACTIONS=sum(NUM_OF_TRANSACTIONS,
+            PHYSICAL_VOLUME = sum(PHYSICAL_VOLUME))) %>%
+  mutate(Longevity = as.numeric(as.Date(MAX_POSTING_DATE, "%m/%d/%Y")) - as.numeric(as.Date(MIN_POSTING_DATE, "%m/%d/%Y")))
+
+#summary(cs_sales_final)
+
+model_dataset <- cs_sales_final 
+model_dataset <- as.data.frame(model_dataset[,c(2,5:11)])
+
+model_dataset <- model_dataset %>% distinct()
+
+```
+
+We have already managed NA values in the EDA session under Data Loading and pre-processing. 
+
+Here creating a new column called Longevity to the data set which is created as the overall length of the business transactions
+
+## Models considered
+
+* Linear regression: Linear regression is a statistical technique that is used to model the relationship between a dependent variable and one or more independent variables. This will involve fitting a line to the data that best represents the relationship between the independent variables and Longevity.
+
+* Regularized Linear regression (Ridge regression and Lasso regression) : Ridge/lasso regression is a regularization technique used in linear regression models to prevent overfitting and improve the model's generalization. Using ridge/lasso regression for improving the performance of linear regression models by removing multicollinearity and noisy data.
+                
+* Decision Tree: It is a type of supervised machine learning algorithm that can be used for both classification and regression tasks. In this case, we can use a decision tree to predict the success or profitability of new Swire customers. Decision trees work by partitioning the data based on the values of the predictor variables, and recursively subdividing the data until a stopping criterion is met. This results in a tree-like structure where each internal node represents a decision based on the predictor variables, and each leaf node represents a predicted outcome.
+
+## Partitioning dataset for simple hold-out evaluation
+
+```{r }
+
+#Partitioning dataset for simple hold-out evaluation(80% for training and 20% for testing)
+set.seed(100)
+inTrain <- createDataPartition(model_dataset$Longevity, p=0.8, list=FALSE)
+
+train_target <- model_dataset[inTrain,8]
+test_target <- model_dataset[-inTrain,8]
+
+train_input <- model_dataset[inTrain,-8]
+test_input <- model_dataset[-inTrain,-8]
+
+```
+
+# Linear regression model
+
+## Performing linear regression on trained dataset
+
+```{r , max.height='400px', class.output="moon"}
+# Linear regression model
+
+
+# Train the linear regression model
+ga_lm_train_model <- lm(unlist(train_target) ~ ., data = train_input)
+
+
+#specifying model names and summary
+summary_fit <- summary(ga_lm_train_model)
+
+# Extract the coefficients table
+coefficients_table <- summary_fit$coefficients
+
+# Sort the coefficients by absolute value of the estimates
+sorted_coefficients <- coefficients_table[order(abs(coefficients_table[,1]), decreasing=TRUE),]
+
+# Print the top 10 high contributors
+top_20_contributors <- head(sorted_coefficients, n=20)
+print(top_20_contributors)
+
+```
+
+
+### predict on the train and test data based on train base model 
+
+```{r predLM}
+#predict on the train data based on train base model 
+prediction_lm_train <- predict(ga_lm_train_model, train_input)
+
+#predict on the test data based on train base model .
+prediction_lm_test<-predict(ga_lm_train_model, test_input)
+
+```
+
+### Performance metrics 
+
+```{r performanceLM}
+#generating the model-fit (R2) and prediction error metrics (MAE, MAPE, RAE, RMSE, RMSPE, RRSE)  in both the testing and training sets
+mmetric(test_target,prediction_lm_test,c("MAE","RAE","RMSE","RRSE", "R2"))
+
+# performance of predictions on training data
+mmetric(train_target,prediction_lm_train,c("MAE","RAE","RMSE", "RRSE", "R2"))
+```
+
+The model metrics show that the R-squared is slightly better for test dataset but over all the R squared is not that great. Moving towards another method to check the summary.
+
+# Regularized Linear regression model
+
+## Ridge regression - Model Tuning and Cross validation
+
+
+```{r ridge1 }
+## For gross profit
+#ridge_training_input <- model.matrix(GROSS_PROFIT_DEAD_NET ~., data=model_dataset[inTrain,])
+ridge_training_input <- model.matrix(unlist(train_target) ~., data=train_input)
+ridge_training_target <- unlist(train_target)
+
+set.seed(123)
+(sales_ridge <- train(y = ridge_training_target,
+                        x = ridge_training_input,
+                        method = "glmnet", 
+                        preProcess = c("center","scale"),
+                        trControl = trainControl(method = "cv",  # bootstrapping
+                                                 number = 5,
+                                                 verboseIter = T),
+                        tuneGrid= expand.grid(alpha=0,lambda = seq(0,5, .1)))) %>% summary()
+
+#Best tuning lambda
+sales_ridge$bestTune$lambda
+
+#Estimating ridge regression for training dataset
+ridge_training <- glmnet(ridge_training_input,ridge_training_target,alph = 0,lambda=sales_ridge$bestTune$lambda,standardsize=TRUE)
+
+#Reporting test error
+ridge_testing_input <- model.matrix(unlist(test_target) ~., data=test_input)
+
+ridge_testing_target<-unlist(test_target)
+
+## Make predictions using the cross-validated model
+predictions <-predict(ridge_training,s=sales_ridge$bestTune$lambda,newx=ridge_testing_input)
+
+mmetric(predictions,ridge_testing_target,c("MAE","RMSE","MAPE","RMSPE","RAE","RRSE","R2"))
+
+```
+
+## Lasso regression     - Model Tuning and Cross validation
+
+```{r lasso1 }
+#for Gross profit
+# lasso_training_input <- dummyVars(train_target ~ ., data = train_input, fullRank = T) %>% 
+#   predict(newdata = train_input)
+
+lasso_training_input <- model.matrix(unlist(train_target) ~., data=train_input)
+
+lasso_training_target <- unlist(train_target)
+
+
+set.seed(123)
+(sales_lasso <- train(y = lasso_training_target,
+                        x = lasso_training_input,
+                        method = "glmnet", 
+                        preProcess = c("center","scale"),
+                        trControl = trainControl(method = "cv",  # bootstrapping
+                                                 number = 5,
+                                                 verboseIter = T),
+                        tuneGrid= expand.grid(alpha=1,lambda = seq(0,5, .1)))) %>% summary()
+
+#Best tuning lambda
+sales_lasso$bestTune$lambda
+
+#Estimating lasso regression for training dataset
+lasso_training <- glmnet(lasso_training_input,lasso_training_target,alph = 0,lambda=sales_lasso$bestTune$lambda,standardsize=TRUE)
+
+#Reporting test error
+lasso_testing_input <- model.matrix(unlist(test_target) ~., data=test_input)
+lasso_testing_target<-unlist(test_target)
+
+## Make predictions using the cross-validated model
+predictions <-predict(lasso_training,s=sales_lasso$bestTune$lambda,newx=lasso_testing_input)
+mmetric(predictions,lasso_testing_target,c("MAE","RMSE","MAPE","RMSPE","RAE","RRSE","R2"))
+
+```
+
+# Decision Tree
+
+A decision tree is a type of model that makes predictions by recursively splitting the data into smaller and smaller groups based on the most important features until a stopping criterion is reached, and then predicts the outcome based on the majority class of the final group. 
+
+## Building decision tree model
+
+```{r }
+# Train the models using rpart, M5P on the training set
+library(rpart.plot)
+ga_rpart_train_model <- rpart(unlist(train_target)~., data = train_input)
+rpart.plot(ga_rpart_train_model)
+
+```
+
+## Predict on the test and trained data based on train base model
+
+```{r }
+#predict on the test data based on train base model .
+
+prediction_rpart_test<-predict(ga_rpart_train_model, test_input)
+
+#predict on the train data based on train base model 
+
+prediction_rpart_train <- predict(ga_rpart_train_model, train_input)
+
+```
+
+## Performance metrics
+
+```{r }
+
+#generating the model-fit (R2) and prediction error metrics (MAE, MAPE, RAE, RMSE, RMSPE, RRSE)  in both the testing and training sets
+mmetric(test_target,prediction_rpart_test,c("MAE","RAE","RMSE", "RRSE", "R2"))
+
+
+# performance of predictions on training data
+mmetric(train_target,prediction_lm_train,c("MAE","RAE","RMSE","RRSE", "R2"))
+
+```
+
+## Model tuning
+
+```{r }
+
+#Finding best CP value
+
+ga_rpart_train_model <- rpart(unlist(train_target)~., data = train_input,control=rpart.control(cp = 0.006,minsplit=15,minbucket=10))
+printcp(ga_rpart_train_model)
+#rpart.plot(ga_rpart_train_model)
+
+
+```
+
+## Cross validation 
+
+```{r }
+
+cv_function <- function(df, target, nFolds, seedVal, method, metrics_list)
+{
+  set.seed(seedVal)
+  folds = createFolds(df[,target],nFolds) 
+  cv_results <- lapply(folds, function(x)
+  { 
+    test_target <- df[x,target]
+    test_input  <- df[x,-target]
+    train_target <- df[-x,target]
+    train_input <- df[-x,-target]
+
+    prediction_model <- method(unlist(train_target)~.,data=train_input) 
+    prediction<- predict(prediction_model,test_input)
+    return(mmetric(test_target,prediction,metrics_list))
+  })
+  
+
+# Generating a table of fold-by-fold performance metrics, means and standard deviations of performance over all folds
+  cv_results_m <- as.matrix(as.data.frame(cv_results))
+  cv_mean<- as.matrix(rowMeans(cv_results_m))
+  cv_sd <- as.matrix(rowSds(cv_results_m))
+  colnames(cv_mean) <- "Mean"
+  colnames(cv_sd) <- "Sd"
+  kable(t(cbind(cv_results_m,cv_mean, cv_sd)),digits=2)
+}
+
+df <- model_dataset
+target <- 8
+seedVal <- 100
+nFolds <- 5
+
+# metric list
+metrics_list <- c("MAE","RMSE","RAE","RRSE","R2") 
+
+# rpart
+
+method <- rpart
+
+cv_function(df, target, nFolds, seedVal, method, metrics_list)
+
+# lm
+method <- lm
+
+cv_function(df, target, nFolds, seedVal, method, metrics_list)
+
+```
+
+
+# Model selection and performance
+
+Comparing the different model fits above we see that all the three models did a moderately okay job at fetching results we were looking for. The Longevity of the customer was best explained by Decisions trees also giving us an insight on how 
+
+- Number of transactions
+
+- Physical Volume 
+
+strongly impact the longevity of the customer. The decision trees suggest that more the transactions and more the physical volume sales mean more longevity.
+
+# Summary
+
+In conclusion Longevity is a good metric to thin out majority of the customers. However, a combination of Longevity, Popularity and Sales to make accurate decision about overall customer satisfaction and being profitable for Swire's business.
+
+For instance if we see the inference from the linear regression 
+
+1) We find top CUSTOMER_ACTIVITY_CLUSTER Swire should be very careful in investing as they are negatively correlated and significant:
+
+- Eating & Drinking 
+
+- Educational
+
+- Travel/Transportation
+
+- Entertainment/Recreation
+
+- Other Shopping & Ser
+
+2) We also find top CUSTOMER_TRADE_CHANNEL Swire should be open to investing in as they are positively correlated and significant:
+
+- Automotive Services
+
+- Full Service Restaurants
+
+- Bar/Tavern/Licensed
+
+- Lodging
+
+- General Merchandiser
+
+with the only exception of Health/Hospital channel, Industrial/Agricultural, Government (Non-Military) and Business & Professional.
+
+3) We see the Sales offices mentioned below contributing more to the longevity of the customer 
+
+- Yuma, AZ
+
+- Scottsbluff, NE
+
+- Grand Junction, CO 
